@@ -1,0 +1,62 @@
+{
+  "name": "gromozeka-bot",
+  "version": "0.0.0",
+  "description": "Telegram bot",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "gromozeka": "entry.js"
+  },
+  "scripts": {
+    "start": "ts-node src/entry.ts",
+    "start:watch": "ts-node-dev --respawn -- src/entry.ts",
+    "lint": "eslint .",
+    "prebuild": "tsc --build --clean && rm -rf dist",
+    "build": "tsc --build && chmod +x dist/entry.js",
+    "postbuild": "cp -r package.json package-lock.json config dist",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "test": "jest",
+    "postversion": "cp -r package.json .. && cp -r package-lock.json ..",
+    "prepublishOnly": "npm pkg delete scripts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/en9inerd/gromozeka-bot.git"
+  },
+  "keywords": [
+    "telegram-api",
+    "telegram",
+    "user-management",
+    "chat-management",
+    "bot"
+  ],
+  "author": "Vladimir Loskutov",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/en9inerd/gromozeka-bot/issues"
+  },
+  "homepage": "https://github.com/en9inerd/gromozeka-bot#readme",
+  "dependencies": {
+    "bcrypt": "^5.0.1",
+    "dotenv": "^16.0.1",
+    "mongoose": "^6.4.2",
+    "telebuilder": "^0.1.4",
+    "telegram": "^2.9.8"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.0.3",
+    "@commitlint/config-conventional": "^17.0.3",
+    "@semantic-release/changelog": "^6.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^8.0.4",
+    "@types/bcrypt": "^5.0.0",
+    "eslint": "^8.19.0",
+    "husky": "^8.0.1",
+    "jest": "^28.1.2",
+    "semantic-release": "^19.0.3",
+    "ts-jest": "^28.0.5",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^4.7.4"
+  }
+}
