@@ -14,7 +14,7 @@ services:
       - 27017:27017
     volumes:
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh:ro
-  # tgmanager:
+  # gromozeka:
   #   build: .
   #   restart: always
   #   environment:
