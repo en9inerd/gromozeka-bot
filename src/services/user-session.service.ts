@@ -1,7 +1,9 @@
 import bcrypt from 'bcrypt';
 import { EncryptionHelper } from 'telebuilder/helpers';
-import { UserSessionModel } from '../models';
-import { UserSession, UserCreds } from '../types';
+import { UserCreds } from '../types';
+import { UserSession } from '../models';
+import { collections } from './database.service';
+import { ReturnDocument } from 'mongodb';
 
 export class UserSessionService {
   private async buildUser(userSession: UserSession, creds?: UserCreds): Promise<UserSession> {
@@ -14,19 +16,21 @@ export class UserSessionService {
   }
   public async create(userSession: UserSession, creds: UserCreds): Promise<UserSession | null> {
     const newUserSession = await this.buildUser(userSession, creds);
-    return await UserSessionModel.findOneAndUpdate({ id: newUserSession.id }, newUserSession, { new: true, upsert: true });
+    const result = await collections.userSessions.findOneAndUpdate({ id: newUserSession.id }, newUserSession, { returnDocument: ReturnDocument.AFTER, upsert: true });
+    return result.value;
   }
 
   public async update(user: UserSession, creds?: UserCreds): Promise<UserSession | null> {
     const newUserSession = await this.buildUser(user, creds);
-    return await UserSessionModel.findOneAndUpdate({ id: newUserSession.id }, newUserSession, { new: true });
+    const result = await collections.userSessions.findOneAndUpdate({ id: newUserSession.id }, newUserSession, { returnDocument: ReturnDocument.AFTER });
+    return result.value;
   }
 
   public async getByIdAndDecrypt(
     userId: bigInt.BigInteger | string,
     password: string,
   ): Promise<{ userSession: UserSession | null; session: string }> {
-    const userSession = await UserSessionModel.findOne({ id: userId.toString() });
+    const userSession = await collections.userSessions.findOne({ id: userId.toString() });
     let session = '';
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
       if (!(await bcrypt.compare(password, userSession.hashedPassword))) throw new Error('Invalid password');
@@ -36,10 +40,10 @@ export class UserSessionService {
   }
 
   public async getById(userId: bigInt.BigInteger | string): Promise<UserSession | null> {
-    return await UserSessionModel.findOne({ id: userId.toString() });
+    return await collections.userSessions.findOne({ id: userId.toString() });
   }
 
   public async delete(userId: bigInt.BigInteger | string): Promise<{ deletedCount: number }> {
-    return await UserSessionModel.deleteOne({ id: userId.toString() });
+    return await collections.userSessions.deleteOne({ id: userId.toString() });
   }
 }

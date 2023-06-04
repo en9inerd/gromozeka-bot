@@ -1,17 +1,17 @@
 import { NewMessageEvent } from 'telegram/events';
-import { MethodBuilder } from 'telebuilder/decorators';
 import { UserSessionService } from '../services';
 import type { Command, CommandScope } from 'telebuilder/types';
+import { boundAndLocked } from 'telebuilder/decorators';
 
 export class EraseCommand implements Command {
   command = 'erase';
   description = 'Deletes all messages in the selected chat';
   usage = '';
-  scopes: CommandScope[] = [{ name: 'Users' }];
+  scopes: CommandScope[] = [{ name: 'Default' }];
   langCodes = [];
   private userSessionService = new UserSessionService();
 
-  @MethodBuilder
+  @boundAndLocked
   public async defaultHandler(event: NewMessageEvent) {
     if (!event.client || !event?.message?.senderId) return;
 

@@ -1,2 +1,1 @@
-export * from './chat.model';
-export * from './user.session.model';
+export * from './user-session.model';

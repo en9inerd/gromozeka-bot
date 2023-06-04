@@ -8,16 +8,16 @@
     "gromozeka": "entry.js"
   },
   "scripts": {
-    "start": "ts-node src/entry.ts",
-    "start:watch": "ts-node-dev --respawn -- src/entry.ts",
+    "start": "node dist/entry.js",
+    "start:watch": "nodemon --exec 'tsc && node dist/entry.js' --watch src --watch ../telebuilder --ext ts --delay 1",
     "lint": "eslint .",
     "prebuild": "tsc --build --clean && rm -rf dist",
     "build": "tsc --build && chmod +x dist/entry.js",
-    "postbuild": "cp -r package.json package-lock.json config dist",
+    "postbuild": "cp -r package.json config dist",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "test": "jest",
-    "postversion": "cp -r package.json .. && cp -r package-lock.json ..",
+    "postversion": "cp -r package.json ..",
     "prepublishOnly": "npm pkg delete scripts"
   },
   "repository": {
@@ -39,24 +39,26 @@
   "homepage": "https://github.com/en9inerd/gromozeka-bot#readme",
   "dependencies": {
     "bcrypt": "^5.1.0",
-    "dotenv": "^16.0.3",
-    "mongoose": "^6.9.0",
-    "telebuilder": "^0.1.4",
-    "telegram": "^2.15.5"
+    "config": "^3.3.9",
+    "dotenv": "^16.1.3",
+    "mongodb": "^5.6.0",
+    "telebuilder": "file:../telebuilder/dist",
+    "telegram": "^2.17.4"
   },
   "devDependencies": {
-    "@commitlint/cli": "^17.4.2",
-    "@commitlint/config-conventional": "^17.4.2",
-    "@semantic-release/changelog": "^6.0.2",
+    "@commitlint/cli": "^17.6.5",
+    "@commitlint/config-conventional": "^17.6.5",
+    "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^8.0.7",
+    "@semantic-release/github": "^9.0.0",
     "@types/bcrypt": "^5.0.0",
-    "eslint": "^8.33.0",
+    "@types/config": "^3.3.0",
+    "eslint": "^8.42.0",
     "husky": "^8.0.3",
-    "jest": "^29.4.1",
-    "semantic-release": "^20.1.0",
-    "ts-jest": "^29.0.5",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^4.9.5"
+    "jest": "^29.5.0",
+    "nodemon": "^2.0.22",
+    "semantic-release": "^21.0.3",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.1.3"
   }
 }

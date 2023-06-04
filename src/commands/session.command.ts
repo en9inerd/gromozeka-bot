@@ -1,43 +1,39 @@
 
 import bcrypt from 'bcrypt';
 import { NewMessageEvent } from 'telegram/events';
-import type { Command, CommandScope } from 'telebuilder/types';
 import { CallbackQueryEvent } from 'telegram/events/CallbackQuery';
 import { Button } from 'telegram/tl/custom/button';
-import { TelegramUserClient } from 'telebuilder/clients';
 import { StringSession } from 'telegram/sessions';
-import { Utils } from 'telebuilder/utils';
-import { EncryptionHelper } from 'telebuilder/helpers';
-import { ClassBuilder } from 'telebuilder/decorators';
 import { Api } from 'telegram';
 import { UserSessionService } from '../services';
-import { UserSession } from '../types';
+import { UserSession } from '../models';
+import { Command, CommandScope } from 'telebuilder/types';
+import { TelegramUserClient, Utils, boundAndLocked } from 'telebuilder';
+import { EncryptionHelper } from 'telebuilder/helpers';
 
-@ClassBuilder
 export class SessionCommand implements Command {
   command = 'session';
   description = 'Creates and saves a new session';
   usage = '';
-  scopes: CommandScope[] = [{ name: 'Users' }];
+  scopes: CommandScope[] = [{ name: 'Default' }];
   langCodes = [];
-  private buttons = {
-    woSession: [
-      [Button.inline('Create session', Buffer.from('createSession'))]
-    ],
-    withSession: [
-      [Button.inline('Change Passphrase', Buffer.from('changePassphrase'))],
-      [Button.inline('Revoke session', Buffer.from('revokeSession'))],
-      [Button.inline('Delete session', Buffer.from('deleteSession'))]
-    ]
-  };
+  woSessionButtons = [
+    [Button.inline('Create session', Buffer.from('createSession'))]
+  ];
+  withSessionButtons = [
+    [Button.inline('Change Passphrase', Buffer.from('changePassphrase'))],
+    [Button.inline('Revoke session', Buffer.from('revokeSession'))],
+    [Button.inline('Delete session', Buffer.from('deleteSession'))]
+  ];
   private userSessionService = new UserSessionService();
 
+  @boundAndLocked
   public async defaultHandler(event: NewMessageEvent) {
     if (!event.client || !event?.message?.senderId) return;
 
     const userSession = await this.userSessionService.getById(event.message.senderId);
     const buttons = [
-      ...(userSession?.encryptedSession ? this.buttons.withSession : this.buttons.woSession)
+      ...(userSession?.encryptedSession ? this.withSessionButtons : this.woSessionButtons)
     ];
 
     await event.client.sendMessage(event.message.senderId, {
@@ -48,6 +44,7 @@ export class SessionCommand implements Command {
     });
   }
 
+  @boundAndLocked
   public async createSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -100,6 +97,7 @@ export class SessionCommand implements Command {
     await event.client.sendMessage(event.senderId, { message });
   }
 
+  @boundAndLocked
   public async revokeSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -134,6 +132,7 @@ export class SessionCommand implements Command {
     await event.client.sendMessage(event.senderId, { message });
   }
 
+  @boundAndLocked
   public async changePassphrase(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -174,6 +173,7 @@ export class SessionCommand implements Command {
     await event.client.sendMessage(event.senderId, { message });
   }
 
+  @boundAndLocked
   public async deleteSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;

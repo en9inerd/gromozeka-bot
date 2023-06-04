@@ -1,13 +1,8 @@
 #!/usr/bin/env node
 import { TelegramBotClient } from 'telebuilder';
+import { DatabaseService } from './services/database.service';
 
 (async () => {
-  const client = new TelegramBotClient();
+  const client = new TelegramBotClient(new DatabaseService());
   await client.init();
-  for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => handleSignal(client));
 })();
-
-async function handleSignal(client: TelegramBotClient) {
-  await client.destroy();
-  process.exit(0);
-}
