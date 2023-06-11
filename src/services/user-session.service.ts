@@ -7,7 +7,7 @@ import { ReturnDocument } from 'mongodb';
 
 export class UserSessionService {
   private async buildUser(userSession: UserSession, creds?: UserCreds): Promise<UserSession> {
-    userSession.id = userSession.id.toString();
+    userSession.userId = userSession.userId.toString();
     if (creds?.password) {
       userSession.hashedPassword = await bcrypt.hash(creds.password, 10);
       if (creds?.session) userSession.encryptedSession = EncryptionHelper.encrypt(creds.session, creds.password);
@@ -16,13 +16,21 @@ export class UserSessionService {
   }
   public async create(userSession: UserSession, creds: UserCreds): Promise<UserSession | null> {
     const newUserSession = await this.buildUser(userSession, creds);
-    const result = await collections.userSessions.findOneAndUpdate({ id: newUserSession.id }, newUserSession, { returnDocument: ReturnDocument.AFTER, upsert: true });
+    const result = await collections.userSessions.findOneAndUpdate(
+      { userId: newUserSession.userId },
+      newUserSession,
+      { returnDocument: ReturnDocument.AFTER, upsert: true }
+    );
     return result.value;
   }
 
   public async update(user: UserSession, creds?: UserCreds): Promise<UserSession | null> {
     const newUserSession = await this.buildUser(user, creds);
-    const result = await collections.userSessions.findOneAndUpdate({ id: newUserSession.id }, newUserSession, { returnDocument: ReturnDocument.AFTER });
+    const result = await collections.userSessions.findOneAndUpdate(
+      { userId: newUserSession.userId },
+      newUserSession,
+      { returnDocument: ReturnDocument.AFTER }
+    );
     return result.value;
   }
 

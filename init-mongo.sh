@@ -1,4 +1,4 @@
-mongo -- "$MONGO_INITDB_DATABASE" <<EOF
+mongosh -- "$MONGO_INITDB_DATABASE" <<EOF
     use admin;
     db.getSiblingDB('$MONGO_INITDB_DATABASE');
     use $MONGO_INITDB_DATABASE;
@@ -8,7 +8,7 @@ mongo -- "$MONGO_INITDB_DATABASE" <<EOF
             pwd: '$MONGO_DB_PASSWORD',
             roles: [
                 {
-                    role: "readWrite",
+                    role: "dbOwner",
                     db: '$MONGO_INITDB_DATABASE'
                 }
             ]

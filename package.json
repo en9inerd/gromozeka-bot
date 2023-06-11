@@ -11,8 +11,8 @@
     "start": "node dist/entry.js",
     "start:watch": "nodemon --exec 'tsc && node dist/entry.js' --watch src --watch ../telebuilder --ext ts --delay 1",
     "lint": "eslint .",
-    "prebuild": "tsc --build --clean && rm -rf dist",
-    "build": "tsc --build && chmod +x dist/entry.js",
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
     "postbuild": "cp -r package.json config dist",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
@@ -42,7 +42,7 @@
     "config": "^3.3.9",
     "dotenv": "^16.1.3",
     "mongodb": "^5.6.0",
-    "telebuilder": "file:../telebuilder/dist",
+    "telebuilder": "^0.2.0",
     "telegram": "^2.17.4"
   },
   "devDependencies": {

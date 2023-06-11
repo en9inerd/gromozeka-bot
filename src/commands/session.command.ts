@@ -7,8 +7,8 @@ import { StringSession } from 'telegram/sessions';
 import { Api } from 'telegram';
 import { UserSessionService } from '../services';
 import { UserSession } from '../models';
-import { Command, CommandScope } from 'telebuilder/types';
-import { TelegramUserClient, Utils, boundAndLocked } from 'telebuilder';
+import { Buttons, Command, CommandScope } from 'telebuilder/types';
+import { TelegramUserClient, Utils, boundAndLocked, buttonsReg, callbackQueryHandler } from 'telebuilder';
 import { EncryptionHelper } from 'telebuilder/helpers';
 
 export class SessionCommand implements Command {
@@ -17,10 +17,10 @@ export class SessionCommand implements Command {
   usage = '';
   scopes: CommandScope[] = [{ name: 'Default' }];
   langCodes = [];
-  woSessionButtons = [
-    [Button.inline('Create session', Buffer.from('createSession'))]
+  @buttonsReg woSessionButtons: Buttons = [
+    [Button.inline('Create session', Buffer.from('createSession:some_extra_data'))]
   ];
-  withSessionButtons = [
+  @buttonsReg withSessionButtons: Buttons = [
     [Button.inline('Change Passphrase', Buffer.from('changePassphrase'))],
     [Button.inline('Revoke session', Buffer.from('revokeSession'))],
     [Button.inline('Delete session', Buffer.from('deleteSession'))]
@@ -40,11 +40,12 @@ export class SessionCommand implements Command {
       message: userSession?.encryptedSession
         ? `You already have "${userSession?.sessionName}" session.`
         : "You don't have a session yet. Please create one.",
-      buttons,
+      buttons
     });
   }
 
   @boundAndLocked
+  @callbackQueryHandler
   public async createSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -75,7 +76,7 @@ export class SessionCommand implements Command {
 
       const newUserSession = {
         sessionName,
-        id: event.senderId,
+        userId: event.senderId,
       } as UserSession;
 
       const userCreds = {
@@ -83,7 +84,7 @@ export class SessionCommand implements Command {
         session: <string><unknown>userClient.session.save(),
       };
 
-      if (userSession?.id) {
+      if (userSession?.userId) {
         await this.userSessionService.update(newUserSession, userCreds);
       } else {
         await this.userSessionService.create(newUserSession, userCreds);
@@ -98,6 +99,7 @@ export class SessionCommand implements Command {
   }
 
   @boundAndLocked
+  @callbackQueryHandler
   public async revokeSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -133,6 +135,7 @@ export class SessionCommand implements Command {
   }
 
   @boundAndLocked
+  @callbackQueryHandler
   public async changePassphrase(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -173,6 +176,7 @@ export class SessionCommand implements Command {
     await event.client.sendMessage(event.senderId, { message });
   }
 
+  @callbackQueryHandler
   @boundAndLocked
   public async deleteSession(event: CallbackQueryEvent) {
     await event.answer();
@@ -184,23 +188,4 @@ export class SessionCommand implements Command {
 
     await event.client.sendMessage(event.senderId, { message });
   }
-
-  callbackQueryHandlers = [
-    {
-      pattern: new RegExp('createSession'),
-      callback: this.createSession,
-    },
-    {
-      pattern: new RegExp('revokeSession'),
-      callback: this.revokeSession,
-    },
-    {
-      pattern: new RegExp('deleteSession'),
-      callback: this.deleteSession,
-    },
-    {
-      pattern: new RegExp('changePassphrase'),
-      callback: this.changePassphrase,
-    }
-  ];
 }
