@@ -1,3 +1,10 @@
+## [0.1.3](https://github.com/en9inerd/gromozeka-bot/compare/v0.1.2...v0.1.3) (2023-07-03)
+
+
+### Bug Fixes
+
+* use new approcah based on DI ([75e60dd](https://github.com/en9inerd/gromozeka-bot/commit/75e60ddd1a19d662a35c772c367d90b4339b22fa))
+
 ## [0.1.2](https://github.com/en9inerd/gromozeka-bot/compare/v0.1.1...v0.1.2) (2023-06-11)
 
 
