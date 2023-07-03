@@ -8,24 +8,32 @@ import { Api } from 'telegram';
 import { UserSessionService } from '../services';
 import { UserSession } from '../models';
 import { Buttons, Command, CommandScope } from 'telebuilder/types';
-import { TelegramUserClient, Utils, boundAndLocked, buttonsReg, callbackQueryHandler } from 'telebuilder';
+import { TelegramUserClient } from 'telebuilder';
 import { EncryptionHelper } from 'telebuilder/helpers';
+import { tryInputThreeTimes } from 'telebuilder/utils';
+import { boundAndLocked, buttonsReg, callbackQueryHandler, command } from 'telebuilder/decorators';
+import { inject } from 'telebuilder/decorators/inject.decorator';
 
+@command
 export class SessionCommand implements Command {
   command = 'session';
   description = 'Creates and saves a new session';
   usage = '';
   scopes: CommandScope[] = [{ name: 'Default' }];
   langCodes = [];
+
+  @inject(UserSessionService)
+  userSessionService!: UserSessionService;
+
   @buttonsReg woSessionButtons: Buttons = [
     [Button.inline('Create session', Buffer.from('createSession:some_extra_data'))]
   ];
+
   @buttonsReg withSessionButtons: Buttons = [
     [Button.inline('Change Passphrase', Buffer.from('changePassphrase'))],
     [Button.inline('Revoke session', Buffer.from('revokeSession'))],
     [Button.inline('Delete session', Buffer.from('deleteSession'))]
   ];
-  private userSessionService = new UserSessionService();
 
   @boundAndLocked
   public async defaultHandler(event: NewMessageEvent) {
@@ -63,7 +71,7 @@ export class SessionCommand implements Command {
         return;
       }
 
-      const password = await Utils.tryInputThreeTimes(
+      const password = await tryInputThreeTimes(
         event.client,
         'Please enter your passphrase to encrypt session:',
         event.senderId,
@@ -108,7 +116,7 @@ export class SessionCommand implements Command {
     let message = "You don't have a session yet. Please create one.";
 
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
-      const password = await Utils.tryInputThreeTimes(
+      const password = await tryInputThreeTimes(
         event.client,
         'Please enter your passphrase to revoke session:',
         event.senderId,
@@ -144,7 +152,7 @@ export class SessionCommand implements Command {
     let message = "You don't have a session yet. Please create one.";
 
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
-      const currentPassword = await Utils.tryInputThreeTimes(
+      const currentPassword = await tryInputThreeTimes(
         event.client,
         'Please enter your current passphrase:',
         event.senderId,
@@ -155,7 +163,7 @@ export class SessionCommand implements Command {
       );
       const session = EncryptionHelper.decrypt(userSession.encryptedSession, currentPassword);
 
-      const newPassword = await Utils.tryInputThreeTimes(
+      const newPassword = await tryInputThreeTimes(
         event.client,
         'Please enter your new passphrase:',
         event.senderId,

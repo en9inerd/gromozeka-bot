@@ -1,4 +1,4 @@
-import { model } from 'telebuilder';
+import { model } from 'telebuilder/decorators';
 
 const jsonSchema = {
   $jsonSchema: {
