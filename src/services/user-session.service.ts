@@ -20,7 +20,7 @@ export class UserSessionService {
     const newUserSession = await this.buildUser(userSession, creds);
     const result = await myCollections.userSessions.findOneAndUpdate(
       { userId: newUserSession.userId },
-      newUserSession,
+      { $setOnInsert: newUserSession },
       { returnDocument: ReturnDocument.AFTER, upsert: true }
     );
     return result.value;
@@ -30,7 +30,7 @@ export class UserSessionService {
     const newUserSession = await this.buildUser(user, creds);
     const result = await myCollections.userSessions.findOneAndUpdate(
       { userId: newUserSession.userId },
-      newUserSession,
+      { $set: newUserSession },
       { returnDocument: ReturnDocument.AFTER }
     );
     return result.value;
@@ -40,7 +40,7 @@ export class UserSessionService {
     userId: bigInt.BigInteger | string,
     password: string,
   ): Promise<{ userSession: UserSession | null; session: string }> {
-    const userSession = await myCollections.userSessions.findOne({ id: userId.toString() });
+    const userSession = await myCollections.userSessions.findOne({ userId: userId.toString() });
     let session = '';
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
       if (!(await bcrypt.compare(password, userSession.hashedPassword))) throw new Error('Invalid password');
@@ -50,10 +50,10 @@ export class UserSessionService {
   }
 
   public async getById(userId: bigInt.BigInteger | string): Promise<UserSession | null> {
-    return await myCollections.userSessions.findOne({ id: userId.toString() });
+    return await myCollections.userSessions.findOne({ userId: userId.toString() });
   }
 
   public async delete(userId: bigInt.BigInteger | string): Promise<{ deletedCount: number }> {
-    return await myCollections.userSessions.deleteOne({ id: userId.toString() });
+    return await myCollections.userSessions.deleteOne({ userId: userId.toString() });
   }
 }

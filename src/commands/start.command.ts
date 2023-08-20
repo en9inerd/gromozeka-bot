@@ -14,7 +14,7 @@ export class StartCommand implements Command {
   @inject(UserSessionService)
   userSessionService!: UserSessionService;
 
-  public async defaultHandler(event: NewMessageEvent): Promise<void> {
+  public async entryHandler(event: NewMessageEvent): Promise<void> {
     const client = event.client;
 
   }

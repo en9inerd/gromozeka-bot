@@ -3,16 +3,15 @@ import bcrypt from 'bcrypt';
 import { NewMessageEvent } from 'telegram/events';
 import { CallbackQueryEvent } from 'telegram/events/CallbackQuery';
 import { Button } from 'telegram/tl/custom/button';
-import { StringSession } from 'telegram/sessions';
 import { Api } from 'telegram';
 import { UserSessionService } from '../services';
 import { UserSession } from '../models';
-import { Buttons, Command, CommandScope } from 'telebuilder/types';
+import { Buttons, Command, CommandScope, HandlerTypes } from 'telebuilder/types';
 import { TelegramUserClient } from 'telebuilder';
-import { EncryptionHelper } from 'telebuilder/helpers';
-import { tryInputThreeTimes } from 'telebuilder/utils';
-import { boundAndLocked, buttonsReg, callbackQueryHandler, command } from 'telebuilder/decorators';
+import { EncryptionHelper, tryInputThreeTimes } from 'telebuilder/helpers';
+import { buttonsReg, command, handler } from 'telebuilder/decorators';
 import { inject } from 'telebuilder/decorators/inject.decorator';
+import { CommandError } from 'telebuilder/exceptions';
 
 @command
 export class SessionCommand implements Command {
@@ -26,7 +25,7 @@ export class SessionCommand implements Command {
   userSessionService!: UserSessionService;
 
   @buttonsReg woSessionButtons: Buttons = [
-    [Button.inline('Create session', Buffer.from('createSession:some_extra_data'))]
+    [Button.inline('Create session', Buffer.from('createSession'))]
   ];
 
   @buttonsReg withSessionButtons: Buttons = [
@@ -35,16 +34,17 @@ export class SessionCommand implements Command {
     [Button.inline('Delete session', Buffer.from('deleteSession'))]
   ];
 
-  @boundAndLocked
-  public async defaultHandler(event: NewMessageEvent) {
+  @handler()
+  public async entryHandler(event: NewMessageEvent) {
     if (!event.client || !event?.message?.senderId) return;
+    const senderId = event.message.senderId;
 
-    const userSession = await this.userSessionService.getById(event.message.senderId);
+    const userSession = await this.userSessionService.getById(senderId);
     const buttons = [
       ...(userSession?.encryptedSession ? this.withSessionButtons : this.woSessionButtons)
     ];
 
-    await event.client.sendMessage(event.message.senderId, {
+    await event.client.sendMessage(senderId, {
       message: userSession?.encryptedSession
         ? `You already have "${userSession?.sessionName}" session.`
         : "You don't have a session yet. Please create one.",
@@ -52,39 +52,39 @@ export class SessionCommand implements Command {
     });
   }
 
-  @boundAndLocked
-  @callbackQueryHandler
+  @handler(HandlerTypes.CallbackQuery)
   public async createSession(event: CallbackQueryEvent) {
     await event.answer();
-    if (!event.client || !event?.senderId) return;
 
-    const userSession = await this.userSessionService.getById(event.senderId);
+    if (!event.client || !event?.senderId) return;
+    const senderId = event.senderId;
+
+    const userSession = await this.userSessionService.getById(senderId);
     let message = `You already have "${userSession?.sessionName}" session. Please revoke it first.`;
 
     if (!userSession?.encryptedSession) {
-      const userClient = new TelegramUserClient(new StringSession(''), event.senderId, event.client);
+      const userClient = new TelegramUserClient('', senderId, event.client);
 
       try {
         await userClient.init();
       } catch (err) {
-        event.client.logger.error('User ID: ' + event.senderId + ' Error: ' + (<Error>err).message);
+        event.client.logger.error('User ID: ' + senderId + ' Error: ' + (<Error>err).message);
+        await userClient.destroy();
         return;
       }
 
       const password = await tryInputThreeTimes(
         event.client,
-        'Please enter your passphrase to encrypt session:',
-        event.senderId,
-        async (input: string): Promise<boolean> => {
-          return input !== '';
-        }
+        senderId,
+        { message: 'Please enter your passphrase to encrypt session:' }
       );
+      if (!password) return;
 
       const sessionName = (<Api.User>(await userClient.getMe())).firstName;
 
       const newUserSession = {
         sessionName,
-        userId: event.senderId,
+        userId: senderId,
       } as UserSession;
 
       const userCreds = {
@@ -103,74 +103,76 @@ export class SessionCommand implements Command {
       message = 'Your session has been created.';
     }
 
-    await event.client.sendMessage(event.senderId, { message });
+    await event.client.sendMessage(senderId, { message });
   }
 
-  @boundAndLocked
-  @callbackQueryHandler
+  @handler(HandlerTypes.CallbackQuery)
   public async revokeSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
+    const senderId = event.senderId;
 
-    const userSession = await this.userSessionService.getById(event.senderId);
+    const userSession = await this.userSessionService.getById(senderId);
     let message = "You don't have a session yet. Please create one.";
 
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
       const password = await tryInputThreeTimes(
         event.client,
-        'Please enter your passphrase to revoke session:',
-        event.senderId,
+        senderId,
+        { message: 'Please enter your passphrase to revoke session:' },
         async (input: string): Promise<boolean> => {
-          if (!(await bcrypt.compare(input, userSession.hashedPassword))) throw new Error('Invalid passphrase');
+          if (!(await bcrypt.compare(input, userSession.hashedPassword))) throw new CommandError('Invalid passphrase');
           return true;
         }
       );
+      if (!password) return;
+
       const session = EncryptionHelper.decrypt(userSession.encryptedSession, password);
 
-      const userClient = new TelegramUserClient(new StringSession(session), event.senderId, event.client);
+      const userClient = new TelegramUserClient(session, senderId, event.client);
       await userClient.connect();
 
       if (await userClient.checkAuthorization()) {
         await userClient.invoke(new Api.auth.LogOut());
       }
-      await this.userSessionService.delete(event.senderId);
+      await this.userSessionService.delete(senderId);
       await userClient.destroy();
 
       message = 'Your session has been revoked.';
     }
 
-    await event.client.sendMessage(event.senderId, { message });
+    await event.client.sendMessage(senderId, { message });
   }
 
-  @boundAndLocked
-  @callbackQueryHandler
+  @handler(HandlerTypes.CallbackQuery)
   public async changePassphrase(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
+    const senderId = event.senderId;
 
-    const userSession = await this.userSessionService.getById(event.senderId);
+    const userSession = await this.userSessionService.getById(senderId);
     let message = "You don't have a session yet. Please create one.";
 
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
       const currentPassword = await tryInputThreeTimes(
         event.client,
-        'Please enter your current passphrase:',
-        event.senderId,
+        senderId,
+        { message: 'Please enter your current passphrase:' },
         async (input: string): Promise<boolean> => {
-          if (!(await bcrypt.compare(input, userSession.hashedPassword))) throw new Error('Invalid passphrase');
+          if (!(await bcrypt.compare(input, userSession.hashedPassword))) throw new CommandError('Invalid passphrase');
           return true;
         }
       );
+      if (!currentPassword) return;
+
       const session = EncryptionHelper.decrypt(userSession.encryptedSession, currentPassword);
 
       const newPassword = await tryInputThreeTimes(
         event.client,
-        'Please enter your new passphrase:',
-        event.senderId,
-        async (input: string): Promise<boolean> => {
-          return input !== '';
-        }
+        senderId,
+        { message: 'Please enter your new passphrase:' }
       );
+      if (!newPassword) return;
 
       const userCreds = {
         password: newPassword,
@@ -181,19 +183,19 @@ export class SessionCommand implements Command {
       message = 'Your passphrase has been changed.';
     }
 
-    await event.client.sendMessage(event.senderId, { message });
+    await event.client.sendMessage(senderId, { message });
   }
 
-  @callbackQueryHandler
-  @boundAndLocked
+  @handler(HandlerTypes.CallbackQuery)
   public async deleteSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
+    const senderId = event.senderId;
 
     const message = 'Your session has been deleted in the database.';
 
-    await this.userSessionService.delete(event.senderId);
+    await this.userSessionService.delete(senderId);
 
-    await event.client.sendMessage(event.senderId, { message });
+    await event.client.sendMessage(senderId, { message });
   }
 }
