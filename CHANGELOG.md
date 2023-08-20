@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/en9inerd/gromozeka-bot/compare/v0.1.3...v0.2.0) (2023-08-20)
+
+
+### Features
+
+* add fixes and `/erase` command ([b490e3c](https://github.com/en9inerd/gromozeka-bot/commit/b490e3c1030b9ecf93bfcfbaceaa446945f2cadb))
+
 ## [0.1.3](https://github.com/en9inerd/gromozeka-bot/compare/v0.1.2...v0.1.3) (2023-07-03)
 
 
