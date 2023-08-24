@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/en9inerd/gromozeka-bot/compare/v0.2.0...v0.3.0) (2023-08-24)
+
+
+### Features
+
+* move to ESM ([865035c](https://github.com/en9inerd/gromozeka-bot/commit/865035c2e38c4fd69a071581b05cd81fcf350206))
+
 # [0.2.0](https://github.com/en9inerd/gromozeka-bot/compare/v0.1.3...v0.2.0) (2023-08-20)
 
 
