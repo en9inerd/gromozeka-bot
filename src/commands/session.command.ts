@@ -1,16 +1,16 @@
 
 import bcrypt from 'bcrypt';
 import { NewMessageEvent } from 'telegram/events';
-import { CallbackQueryEvent } from 'telegram/events/CallbackQuery';
-import { Button } from 'telegram/tl/custom/button';
+import { CallbackQueryEvent } from 'telegram/events/CallbackQuery.js';
+import { Button } from 'telegram/tl/custom/button.js';
 import { Api } from 'telegram';
-import { UserSessionService } from '../services';
-import { UserSession } from '../models';
+import { UserSessionService } from '../services/index.js';
+import { UserSession } from '../models/index.js';
 import { Buttons, Command, CommandScope, HandlerTypes } from 'telebuilder/types';
 import { TelegramUserClient } from 'telebuilder';
 import { EncryptionHelper, tryInputThreeTimes } from 'telebuilder/helpers';
 import { buttonsReg, command, handler } from 'telebuilder/decorators';
-import { inject } from 'telebuilder/decorators/inject.decorator';
+import { inject } from 'telebuilder/decorators';
 import { CommandError } from 'telebuilder/exceptions';
 
 @command

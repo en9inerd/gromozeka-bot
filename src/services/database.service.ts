@@ -1,6 +1,6 @@
 import { Collection } from 'mongodb';
 import { DBService } from 'telebuilder/services';
-import { UserSession } from '../models';
+import { UserSession } from '../models/index.js';
 import { injectable } from 'telebuilder/decorators';
 
 export const myCollections = {} as {

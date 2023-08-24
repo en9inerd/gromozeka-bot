@@ -1,6 +1,6 @@
 import { NewMessageEvent } from 'telegram/events';
 import type { Command, CommandScope } from 'telebuilder/types';
-import { UserSessionService } from '../services';
+import { UserSessionService } from '../services/index.js';
 import { command, inject } from 'telebuilder/decorators';
 
 @command

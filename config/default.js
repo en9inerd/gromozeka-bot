@@ -1,6 +1,7 @@
-require('dotenv').config(); // it's only for dev environment, don't use dotenv on production
+import dotenv from 'dotenv'; // it's only for dev environment, don't use dotenv on production
+dotenv.config();
 
-module.exports = {
+export default {
     dbConfig: {
         host: process.env.MONGO_DB_HOST || 'localhost',
         name: process.env.MONGO_INITDB_DATABASE,
