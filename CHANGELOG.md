@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/en9inerd/gromozeka-bot/compare/v0.3.0...v0.3.1) (2023-10-07)
+
+
+### Bug Fixes
+
+* add params for `/erase` command ([2a1e544](https://github.com/en9inerd/gromozeka-bot/commit/2a1e544b7c0d6cb9036020a5bf794dc67a139116))
+
 # [0.3.0](https://github.com/en9inerd/gromozeka-bot/compare/v0.2.0...v0.3.0) (2023-08-24)
 
 
