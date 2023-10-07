@@ -23,7 +23,7 @@ export class UserSessionService {
       { $setOnInsert: newUserSession },
       { returnDocument: ReturnDocument.AFTER, upsert: true }
     );
-    return result.value;
+    return result;
   }
 
   public async update(user: UserSession, creds?: UserCreds): Promise<UserSession | null> {
@@ -33,7 +33,7 @@ export class UserSessionService {
       { $set: newUserSession },
       { returnDocument: ReturnDocument.AFTER }
     );
-    return result.value;
+    return result;
   }
 
   public async getByIdAndDecrypt(

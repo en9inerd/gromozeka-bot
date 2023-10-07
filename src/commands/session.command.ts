@@ -17,12 +17,11 @@ import { CommandError } from 'telebuilder/exceptions';
 export class SessionCommand implements Command {
   command = 'session';
   description = 'Creates and saves a new session';
-  usage = '';
   scopes: CommandScope[] = [{ name: 'Default' }];
   langCodes = [];
 
   @inject(UserSessionService)
-  userSessionService!: UserSessionService;
+  private userSessionService!: UserSessionService;
 
   @buttonsReg woSessionButtons: Buttons = [
     [Button.inline('Create session', Buffer.from('createSession'))]
@@ -52,7 +51,7 @@ export class SessionCommand implements Command {
     });
   }
 
-  @handler(HandlerTypes.CallbackQuery)
+  @handler({ type: HandlerTypes.CallbackQuery })
   public async createSession(event: CallbackQueryEvent) {
     await event.answer();
 
@@ -106,7 +105,7 @@ export class SessionCommand implements Command {
     await event.client.sendMessage(senderId, { message });
   }
 
-  @handler(HandlerTypes.CallbackQuery)
+  @handler({ type: HandlerTypes.CallbackQuery })
   public async revokeSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -144,7 +143,7 @@ export class SessionCommand implements Command {
     await event.client.sendMessage(senderId, { message });
   }
 
-  @handler(HandlerTypes.CallbackQuery)
+  @handler({ type: HandlerTypes.CallbackQuery })
   public async changePassphrase(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
@@ -186,7 +185,7 @@ export class SessionCommand implements Command {
     await event.client.sendMessage(senderId, { message });
   }
 
-  @handler(HandlerTypes.CallbackQuery)
+  @handler({ type: HandlerTypes.CallbackQuery })
   public async deleteSession(event: CallbackQueryEvent) {
     await event.answer();
     if (!event.client || !event?.senderId) return;
