@@ -1,5 +1,15 @@
+import { readFile } from 'fs/promises';
+
 import dotenv from 'dotenv'; // it's only for dev environment, don't use dotenv on production
 dotenv.config();
+
+const description = 'Bot deletes all of your messages from chat/channel/dialog on Telegram without admin ' +
+    'privilege. Official Telegram clients don\'t support deletion for all own messages ' +
+    'from chat with one click (you need to manually select messages that you want to ' +
+    'delete and you can delete only 100 selected meesages per time).\n' +
+    'Gromozeka bot decides this problem.';
+const about = 'Bot deletes all of your messages from chat/channel/dialog on Telegram without admin privilege.';
+const version = JSON.parse(await readFile(new URL('../package.json', import.meta.url))).version;
 
 export default {
     dbConfig: {
@@ -20,7 +30,7 @@ export default {
         apiHash: process.env.TG_BOT_API_HASH,
         token: process.env.TG_BOT_TOKEN,
         deviceModel: process.env.TG_BOT_DEVICE_MODEL || 'BotServer',
-        appVersion: process.env.TG_BOT_APP_VERSION || '0.1',
+        appVersion: process.env.TG_BOT_APP_VERSION || version,
         systemVersion: process.env.TG_BOT_SYSTEM_VERSION || '1.0',
         connectionLangCode: process.env.TG_BOT_CONNECTION_LANG_CODE || 'en',
         systemLangCode: process.env.TG_BOT_SYSTEM_LANG_CODE || 'en',
@@ -28,9 +38,9 @@ export default {
 
         // Bot info
         profilePhotoUrl: process.env.TG_BOT_PROFILE_PHOTO_URL || null,
-        name: process.env.TG_BOT_NAME || 'TeleBuilder Bot',
-        about: process.env.TG_BOT_ABOUT || 'TeleBuilder Bot about',
-        description: process.env.TG_BOT_DESCRIPTION || 'TeleBuilder Bot description',
+        name: process.env.TG_BOT_NAME || 'Gromozeka',
+        about: process.env.TG_BOT_ABOUT || about,
+        description: process.env.TG_BOT_DESCRIPTION || description,
         botInfoLangCode: process.env.TG_BOT_INFO_LANG_CODE || '',
     }
 };

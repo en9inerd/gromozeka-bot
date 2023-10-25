@@ -14,9 +14,19 @@ services:
       - 27017:27017
     volumes:
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh:ro
-  # gromozeka:
-  #   build: .
-  #   restart: always
-  #   environment:
-  #     - TG_BOT_TOKEN
-  #     - MONGO_DB_HOST=mongodb
+  gromozeka:
+    build: .
+    restart: always
+    depends_on:
+      - mongodb
+    environment:
+      - TG_BOT_API_ID
+      - TG_BOT_API_HASH
+      - TG_BOT_TOKEN
+      - TG_BOT_PROFILE_PHOTO_URL
+      - MONGO_INITDB_DATABASE
+      - MONGO_DB_USERNAME
+      - MONGO_DB_PASSWORD
+      - MONGO_DB_HOST=mongodb
+    volumes:
+      - ./botInfo:/bot/botInfo

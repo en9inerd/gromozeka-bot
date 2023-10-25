@@ -1,10 +1,10 @@
 import bcrypt from 'bcrypt';
-import { EncryptionHelper } from 'telebuilder/helpers';
-import { UserCreds } from '../types.js';
-import { UserSession } from '../models/index.js';
-import { myCollections } from './database.service.js';
 import { ReturnDocument } from 'mongodb';
 import { injectable } from 'telebuilder/decorators';
+import { EncryptionHelper } from 'telebuilder/helpers';
+import { UserSession } from '../models/index.js';
+import { UserCreds } from '../types.js';
+import { myCollections } from './database.service.js';
 
 @injectable
 export class UserSessionService {

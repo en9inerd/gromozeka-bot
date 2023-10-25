@@ -3,7 +3,22 @@ export type UserCreds = {
   session: string;
 };
 
-export type DialogEntity = {
+export enum EntityType {
+  User = 'user',
+  Chat = 'chat',
+  Channel = 'channel',
+  Any = 'any',
+}
+
+export type ShortEntity = {
   id: bigInt.BigInteger;
   title: string;
+  type: EntityType;
+};
+
+export type EraseParams = {
+  peers?: string;
+  wipeAll?: boolean;
+  type?: EntityType;
+  pw?: string;
 };

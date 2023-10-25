@@ -1,21 +1,19 @@
 import bcrypt from 'bcrypt';
-import { TelegramClient } from 'telegram';
-import { NewMessageEvent } from 'telegram/events';
-import { UserSessionService } from '../services/index.js';
-import { Buttons, Command, CommandParamsSchema, CommandScope, ExtendedMessage, HandlerTypes } from 'telebuilder/types';
-import { userState } from 'telebuilder/states';
-import { buttonsReg, command, handler, inject, params } from 'telebuilder/decorators';
-import { EncryptionHelper, CommandHelper } from 'telebuilder/helpers';
-import { TelegramUserClient } from 'telebuilder';
-import { Button } from 'telegram/tl/custom/button.js';
-import { CallbackQueryEvent } from 'telegram/events/CallbackQuery.js';
-import { Dialog } from 'telegram/tl/custom/dialog.js';
-import { DialogEntity } from '../types.js';
-import { DialogType } from '../keys.js';
-import { CommandError } from 'telebuilder/exceptions';
-import { Api } from 'telegram';
-import { formatErrorMessage } from 'telebuilder/utils';
 import bigInt from 'big-integer';
+import { TelegramUserClient } from 'telebuilder';
+import { buttonsReg, client, command, handler, inject, params } from 'telebuilder/decorators';
+import { CommandError } from 'telebuilder/exceptions';
+import { CommandHelper, EncryptionHelper } from 'telebuilder/helpers';
+import { userState } from 'telebuilder/states';
+import { Buttons, Command, CommandParamsSchema, CommandScope, ExtendedMessage, HandlerTypes } from 'telebuilder/types';
+import { formatErrorMessage } from 'telebuilder/utils';
+import { Api, TelegramClient } from 'telegram';
+import { NewMessageEvent } from 'telegram/events';
+import { CallbackQueryEvent } from 'telegram/events/CallbackQuery.js';
+import { Button } from 'telegram/tl/custom/button.js';
+import { Dialog } from 'telegram/tl/custom/dialog.js';
+import { UserSessionService } from '../services/index.js';
+import { EntityType, EraseParams, ShortEntity } from '../types.js';
 
 @command
 export class EraseCommand implements Command {
@@ -26,11 +24,20 @@ export class EraseCommand implements Command {
   @params params: CommandParamsSchema = {
     peers: {
       type: 'string',
-      required: true,
+      required: false,
+    },
+    type: {
+      type: 'enum',
+      required: false,
+      enumValues: Object.values(EntityType),
     },
     pw: {
       type: 'string',
       required: true,
+    },
+    wipeAll: {
+      type: 'boolean',
+      required: false,
     },
   };
   dialogPageSize = 10;
@@ -42,12 +49,14 @@ export class EraseCommand implements Command {
   @inject(UserSessionService)
   userSessionService!: UserSessionService;
 
+  @client client!: TelegramClient;
+
   @handler()
   public async entryHandler(event: NewMessageEvent) {
     if (!event.client || !event?.message?.senderId) return;
 
     const senderId = event.message.senderId;
-    const params = (<ExtendedMessage>event.message).params;
+    const params: EraseParams = (<ExtendedMessage>event.message).params || {};
     const userSession = await this.userSessionService.getById(senderId);
 
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
@@ -56,7 +65,6 @@ export class EraseCommand implements Command {
         password = params.pw as string;
       } else {
         password = await CommandHelper.tryInputThreeTimes(
-          event.client,
           senderId,
           { message: 'Enter your passphrase:' },
           async (input: string): Promise<boolean> => {
@@ -72,10 +80,34 @@ export class EraseCommand implements Command {
 
       try {
         await userClient.connect();
-        if (params?.peers && params?.pw) {
-          await this.deleteMessagesFromPeers(userClient, senderId, event.client, <string>params.peers);
+        let entities = <ShortEntity[]>[];
+        const dialogs = await userClient.getDialogs();
+
+        if (params?.peers && params?.wipeAll) {
+          throw new CommandError('You can\'t use both "peers" and "wipe" parameters at the same time');
+        } else if (params?.peers) {
+          entities = await this.getEntitiesbyIds(dialogs, params.peers);
+          await this.deleteMessagesFromEntities(
+            userClient,
+            senderId,
+            entities
+          );
+        } else if (params?.wipeAll) {
+          entities = this.filterDialogs(
+            dialogs,
+            params?.type || EntityType.Chat,
+          );
+          await this.deleteMessagesFromEntities(
+            userClient,
+            senderId,
+            entities
+          );
         } else {
-          await this.deleteMessagesFromSelectedChat(userClient, senderId, event.client);
+          entities = this.filterDialogs(
+            dialogs,
+            params?.type || EntityType.Chat,
+          );
+          await this.deleteMessagesFromSelectedChat(userClient, senderId, entities);
         }
       } catch (err) {
         if ((<Error>err).message !== 'Timeout') {
@@ -93,97 +125,60 @@ export class EraseCommand implements Command {
   private async deleteMessagesFromSelectedChat(
     userClient: TelegramUserClient,
     senderId: bigInt.BigInteger,
-    botClient: TelegramClient
+    entities: ShortEntity[]
   ) {
-    const allDialogs = await userClient.getDialogs();
-    const filteresEntities = this.filterDialogs(DialogType.Chat, allDialogs);
-    const entitiesByPage = this.getEntitiesByPage(filteresEntities, 1);
+    const dialogsByPage = this.getDialogsByPage(entities, 1);
 
-    userState.set(senderId.toString(), 'dialogEntities', filteresEntities);
+    userState.set(senderId.toString(), 'dialogEntities', entities);
 
-    let message = 'Enter chat number:\n\n';
-    message += entitiesByPage.reduce((msg, e, i) => {
-      msg += `${i + 1}. ${e.title} (${e.id.abs()})\n`;
+    let message = 'Enter entity number:\n\n';
+    message += dialogsByPage.reduce((msg, e, i) => {
+      msg += `${i + 1}. ${e.title} (${e.id?.abs()})\n`;
       return msg;
     }, '');
 
-    const selectedEntityStr = await CommandHelper.userInputHandler(botClient, senderId, { message, buttons: this.paginationButtons }, false);
+    const selectedEntityStr = await CommandHelper.userInputHandler(senderId, { message, buttons: this.paginationButtons }, false);
 
     const selectedEntityNumber = parseInt(selectedEntityStr);
-    if (isNaN(selectedEntityNumber)) throw new CommandError('Invalid chat number');
+    if (isNaN(selectedEntityNumber)) throw new CommandError('Invalid entity number');
 
-    const selectedDialog = filteresEntities[selectedEntityNumber - 1];
-    if (!selectedDialog) throw new CommandError('Chat number is out of range');
+    const selectedDialog = entities[selectedEntityNumber - 1];
+    if (!selectedDialog) throw new CommandError('Entity number is out of range');
 
-    const msgs = await userClient.getMessages(selectedDialog.id, {
-      fromUser: 'me',
-    });
-    const msgIds = msgs.map(m => m.id);
-    const affectedMsgs = await userClient.deleteMessages(selectedDialog.id, msgIds, { revoke: true });
-
-    let numberOfDeletedMsgs = 0;
-    affectedMsgs.forEach((affectedMsg) => numberOfDeletedMsgs += affectedMsg.ptsCount);
-
-    message = `Deleted ${numberOfDeletedMsgs} messages of ${msgIds.length} in "${selectedDialog.title}" chat.` + ((msgIds.length - numberOfDeletedMsgs) > 0 ?
-      ` Remaining ${msgIds.length - numberOfDeletedMsgs} messages can't be deleted without admin rights because they are service messages.` : '');
-
-    await botClient.sendMessage(senderId, { message });
+    await this.deleteMessagesFromEntities(userClient, senderId, [selectedDialog]);
 
     userState.deleteStateProperty(senderId.toString(), 'dialogEntities');
   }
 
-  private async deleteMessagesFromPeers(
+  private async deleteMessagesFromEntities(
     userClient: TelegramUserClient,
     senderId: bigInt.BigInteger,
-    botClient: TelegramClient,
-    peers: string
+    entities: ShortEntity[]
   ) {
-    const peersArr = (peers).split(',').map(p => {
-      return isNaN(Number(p)) ? p : bigInt(p.trim());
-    });
+    for (const entity of entities) {
+      if (entity.type === EntityType.User) {
+        const affectedMsgs = await userClient.invoke(new Api.messages.DeleteHistory({
+          peer: entity.id,
+          revoke: true,
+        }));
+        await this.client.sendMessage(senderId, { message: `Deleted ${affectedMsgs.ptsCount} messages from conversation with "${entity.title}"` });
+      } else {
+        let numberOfDeletedMsgs = 0;
 
-    if (peers.length === 0) throw new CommandError('Invalid peers');
+        const msgs = await userClient.getMessages(entity.id, {
+          fromUser: 'me',
+        });
+        const msgIds = msgs.map(m => m.id);
+        const affectedMsgs = await userClient.deleteMessages(entity.id, msgIds, { revoke: true });
 
-    for (const peer of peersArr) {
-      let numberOfDeletedMsgs = 0;
-      const entity = <Api.Chat>(await userClient.getEntity(peer));
+        affectedMsgs.forEach((affectedMsg) => numberOfDeletedMsgs += affectedMsg.ptsCount);
 
-      const msgs = await userClient.getMessages(peer, {
-        fromUser: 'me',
-      });
-      const msgIds = msgs.map(m => m.id);
-      const affectedMsgs = await userClient.deleteMessages(peer, msgIds, { revoke: true });
+        const message = `Deleted ${numberOfDeletedMsgs} messages of ${msgIds.length} in "${entity.title}" chat.` + ((msgIds.length - numberOfDeletedMsgs) > 0 ?
+          ` Remaining ${msgIds.length - numberOfDeletedMsgs} messages can't be deleted without admin rights because they are service messages.` : '');
 
-      affectedMsgs.forEach((affectedMsg) => numberOfDeletedMsgs += affectedMsg.ptsCount);
-
-      const message = `Deleted ${numberOfDeletedMsgs} messages of ${msgIds.length} in "${entity.title}" chat.` + ((msgIds.length - numberOfDeletedMsgs) > 0 ?
-        ` Remaining ${msgIds.length - numberOfDeletedMsgs} messages can't be deleted without admin rights because they are service messages.` : '');
-
-      await botClient.sendMessage(senderId, { message });
+        await this.client.sendMessage(senderId, { message });
+      }
     }
-  }
-
-  private async deleteMessagesFromAllDialogs(
-    userClient: TelegramUserClient,
-    senderId: bigInt.BigInteger,
-    botClient: TelegramClient
-  ) {
-    const allDialogs = await userClient.getDialogs();
-
-    let numberOfDeletedMsgs = 0;
-    for (const entity of allDialogs) {
-      const msgs = await userClient.getMessages(entity.id, {
-        fromUser: 'me',
-      });
-      const msgIds = msgs.map(m => m.id);
-      const affectedMsgs = await userClient.deleteMessages(entity.id, msgIds, { revoke: true });
-
-      affectedMsgs.forEach((affectedMsg) => numberOfDeletedMsgs += affectedMsg.ptsCount);
-    }
-
-    const message = `Deleted ${numberOfDeletedMsgs} messages.`;
-
-    await botClient.sendMessage(senderId, { message });
   }
 
   @handler({
@@ -208,19 +203,19 @@ export class EraseCommand implements Command {
     if (!event.client || !event?.senderId || !event.data) return;
 
     const senderId = event.senderId;
-    const dialogEntities = userState.get<DialogEntity[]>(senderId.toString(), 'dialogEntities');
+    const dialogEntities = userState.get<ShortEntity[]>(senderId.toString(), 'dialogEntities');
     if (!dialogEntities) return;
 
     const { extraData } = CommandHelper.getDataFromButtonCallback(event.data);
     const page = parseInt(extraData) + direction;
     if (page < 1) return;
 
-    const entitiesByPage = this.getEntitiesByPage(dialogEntities, page);
-    if (entitiesByPage.length === 0) return;
+    const dialogsByPage = this.getDialogsByPage(dialogEntities, page);
+    if (dialogsByPage.length === 0) return;
 
     const pageOffset = (page - 1) * this.dialogPageSize;
-    const message = 'Enter chat number:\n\n' + entitiesByPage.reduce((msg, e, i) => {
-      msg += `${i + 1 + pageOffset}. ${e.title} (${e.id.abs()})\n`;
+    const message = 'Enter entity number:\n\n' + dialogsByPage.reduce((msg, e, i) => {
+      msg += `${i + 1 + pageOffset}. ${e.title} (${e.id?.abs()})\n`;
       return msg;
     }, '');
 
@@ -231,23 +226,40 @@ export class EraseCommand implements Command {
     });
   }
 
-  private filterDialogs(type: DialogType, dialogs: Dialog[]): DialogEntity[] {
-    return dialogs.reduce((chats, d) => {
+  private filterDialogs(dialogs: Dialog[], type: EntityType): ShortEntity[] {
+    return dialogs.reduce((entities, d) => {
       if ((
-        (d.isGroup && type === DialogType.Chat) ||
-        (d.isChannel && type === DialogType.Channel) ||
-        (d.isUser && type === DialogType.User)) && d?.id
+        (type === EntityType.Any) ||
+        (d.isGroup && type === EntityType.Chat) ||
+        (d.isChannel && type === EntityType.Channel) ||
+        (d.isUser && type === EntityType.User)) && d?.id
       ) {
-        chats.push({
+        entities.push({
           id: d.id,
           title: d.title || 'undefined title',
+          type
         });
       }
-      return chats;
-    }, <DialogEntity[]>[]);
+      return entities;
+    }, <ShortEntity[]>[]);
   }
 
-  private getEntitiesByPage(entities: DialogEntity[], page: number): DialogEntity[] {
+  private getEntitiesbyIds(dialogs: Dialog[], peerIds: string): ShortEntity[] {
+    return peerIds.split(',').map((peer) => {
+      const id = isNaN(Number(peer)) ? peer : bigInt(peer.trim());
+      const dialog = dialogs.find(d => d.id?.equals(id));
+
+      if (!dialog) throw new CommandError(`Entity with id "${id}" not found in your dialogs`);
+
+      return {
+        id: dialog.id || bigInt(0),
+        title: dialog.title || 'undefined title',
+        type: dialog.isGroup ? EntityType.Chat : dialog.isChannel ? EntityType.Channel : EntityType.User,
+      };
+    });
+  }
+
+  private getDialogsByPage(entities: ShortEntity[], page: number): ShortEntity[] {
     return entities.slice((page - 1) * this.dialogPageSize, page * this.dialogPageSize);
   }
 }

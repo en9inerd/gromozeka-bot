@@ -1,17 +1,16 @@
 
 import bcrypt from 'bcrypt';
+import { TelegramUserClient } from 'telebuilder';
+import { buttonsReg, command, handler, inject } from 'telebuilder/decorators';
+import { CommandError } from 'telebuilder/exceptions';
+import { EncryptionHelper, tryInputThreeTimes } from 'telebuilder/helpers';
+import { Buttons, Command, CommandScope, HandlerTypes } from 'telebuilder/types';
+import { Api } from 'telegram';
 import { NewMessageEvent } from 'telegram/events';
 import { CallbackQueryEvent } from 'telegram/events/CallbackQuery.js';
 import { Button } from 'telegram/tl/custom/button.js';
-import { Api } from 'telegram';
-import { UserSessionService } from '../services/index.js';
 import { UserSession } from '../models/index.js';
-import { Buttons, Command, CommandScope, HandlerTypes } from 'telebuilder/types';
-import { TelegramUserClient } from 'telebuilder';
-import { EncryptionHelper, tryInputThreeTimes } from 'telebuilder/helpers';
-import { buttonsReg, command, handler } from 'telebuilder/decorators';
-import { inject } from 'telebuilder/decorators';
-import { CommandError } from 'telebuilder/exceptions';
+import { UserSessionService } from '../services/index.js';
 
 @command
 export class SessionCommand implements Command {
@@ -73,7 +72,6 @@ export class SessionCommand implements Command {
       }
 
       const password = await tryInputThreeTimes(
-        event.client,
         senderId,
         { message: 'Please enter your passphrase to encrypt session:' }
       );
@@ -116,7 +114,6 @@ export class SessionCommand implements Command {
 
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
       const password = await tryInputThreeTimes(
-        event.client,
         senderId,
         { message: 'Please enter your passphrase to revoke session:' },
         async (input: string): Promise<boolean> => {
@@ -154,7 +151,6 @@ export class SessionCommand implements Command {
 
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
       const currentPassword = await tryInputThreeTimes(
-        event.client,
         senderId,
         { message: 'Please enter your current passphrase:' },
         async (input: string): Promise<boolean> => {
@@ -167,7 +163,6 @@ export class SessionCommand implements Command {
       const session = EncryptionHelper.decrypt(userSession.encryptedSession, currentPassword);
 
       const newPassword = await tryInputThreeTimes(
-        event.client,
         senderId,
         { message: 'Please enter your new passphrase:' }
       );
