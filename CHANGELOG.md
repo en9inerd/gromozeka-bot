@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/en9inerd/gromozeka-bot/compare/v0.3.1...v0.4.0) (2023-10-25)
+
+
+### Features
+
+* add improvements and bug fixes ([d0f094e](https://github.com/en9inerd/gromozeka-bot/commit/d0f094e2b4851e2154e706f39f2adda558ad19cd))
+
 ## [0.3.1](https://github.com/en9inerd/gromozeka-bot/compare/v0.3.0...v0.3.1) (2023-10-07)
 
 
