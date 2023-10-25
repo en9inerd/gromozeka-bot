@@ -7,6 +7,8 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    outputs:
+      pkg-version: ${{ steps.get-version.outputs.pkg-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -29,8 +31,7 @@ jobs:
       - name: Export version
         id: get-version
         run: |
-          PKG_VERSION=$(npm pkg get version)
-          echo "pkg-version=$PKG_VERSION" >> $GITHUB_OUTPUT
+          echo "pkg-version=$(npm pkg get version | sed 's/"//g')" >> "$GITHUB_OUTPUT"
 
   docker:
     name: Docker
@@ -53,10 +54,8 @@ jobs:
         name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ needs.release.outputs.pkg-version }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gromozeka:latest,${{ secrets.DOCKERHUB_USERNAME }}/gromozeka:${{ needs.release.outputs.pkg-version }}
 
   
