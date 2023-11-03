@@ -1,12 +1,10 @@
-import bcrypt from 'bcrypt';
 import bigInt from 'big-integer';
 import { TelegramUserClient } from 'telebuilder';
 import { buttonsReg, client, command, handler, inject, params } from 'telebuilder/decorators';
-import { CommandError } from 'telebuilder/exceptions';
+import { CommandException } from 'telebuilder/exceptions';
 import { CommandHelper, EncryptionHelper } from 'telebuilder/helpers';
 import { userState } from 'telebuilder/states';
 import { Buttons, Command, CommandParamsSchema, CommandScope, ExtendedMessage, HandlerTypes } from 'telebuilder/types';
-import { formatErrorMessage } from 'telebuilder/utils';
 import { Api, TelegramClient } from 'telegram';
 import { NewMessageEvent } from 'telegram/events';
 import { CallbackQueryEvent } from 'telegram/events/CallbackQuery.js';
@@ -14,6 +12,7 @@ import { Button } from 'telegram/tl/custom/button.js';
 import { Dialog } from 'telegram/tl/custom/dialog.js';
 import { UserSessionService } from '../services/index.js';
 import { EntityType, EraseParams, ShortEntity } from '../types.js';
+import { getPasswordValidationFn } from '../utils.js';
 
 @command
 export class EraseCommand implements Command {
@@ -33,7 +32,7 @@ export class EraseCommand implements Command {
     },
     pw: {
       type: 'string',
-      required: true,
+      required: false,
     },
     wipeAll: {
       type: 'boolean',
@@ -62,15 +61,13 @@ export class EraseCommand implements Command {
     if (userSession?.encryptedSession && userSession?.hashedPassword) {
       let password: string;
       if (params?.pw) {
-        password = params.pw as string;
+        password = (params.pw.startsWith('||') && params.pw.endsWith('||')) ? params.pw.slice(2, -2) : params.pw;
+        await (getPasswordValidationFn(userSession)(password));
       } else {
         password = await CommandHelper.tryInputThreeTimes(
           senderId,
           { message: 'Enter your passphrase:' },
-          async (input: string): Promise<boolean> => {
-            if (!(await bcrypt.compare(input, userSession.hashedPassword))) throw new CommandError('Invalid passphrase');
-            return true;
-          }
+          getPasswordValidationFn(userSession)
         );
       }
       if (!password) return;
@@ -84,9 +81,9 @@ export class EraseCommand implements Command {
         const dialogs = await userClient.getDialogs();
 
         if (params?.peers && params?.wipeAll) {
-          throw new CommandError('You can\'t use both "peers" and "wipe" parameters at the same time');
+          throw new CommandException('You can\'t use both "peers" and "wipe" parameters at the same time');
         } else if (params?.peers) {
-          entities = await this.getEntitiesbyIds(dialogs, params.peers);
+          entities = this.getEntitiesbyIds(dialogs, params.peers);
           await this.deleteMessagesFromEntities(
             userClient,
             senderId,
@@ -109,14 +106,9 @@ export class EraseCommand implements Command {
           );
           await this.deleteMessagesFromSelectedChat(userClient, senderId, entities);
         }
-      } catch (err) {
-        if ((<Error>err).message !== 'Timeout') {
-          event.client.logger.error('User ID: ' + senderId + ' Error: ' + (<Error>err).message);
-          await event.client.sendMessage(senderId, { message: formatErrorMessage(<Error>err) });
-        }
+      } finally {
+        await userClient.destroy();
       }
-
-      await userClient.destroy();
     } else {
       await event.client.sendMessage(senderId, { message: 'You need to create a session first using /session command.' });
     }
@@ -140,10 +132,10 @@ export class EraseCommand implements Command {
     const selectedEntityStr = await CommandHelper.userInputHandler(senderId, { message, buttons: this.paginationButtons }, false);
 
     const selectedEntityNumber = parseInt(selectedEntityStr);
-    if (isNaN(selectedEntityNumber)) throw new CommandError('Invalid entity number');
+    if (isNaN(selectedEntityNumber)) throw new CommandException('Invalid entity number');
 
     const selectedDialog = entities[selectedEntityNumber - 1];
-    if (!selectedDialog) throw new CommandError('Entity number is out of range');
+    if (!selectedDialog) throw new CommandException('Entity number is out of range');
 
     await this.deleteMessagesFromEntities(userClient, senderId, [selectedDialog]);
 
@@ -249,7 +241,7 @@ export class EraseCommand implements Command {
       const id = isNaN(Number(peer)) ? peer : bigInt(peer.trim());
       const dialog = dialogs.find(d => d.id?.equals(id));
 
-      if (!dialog) throw new CommandError(`Entity with id "${id}" not found in your dialogs`);
+      if (!dialog) throw new CommandException(`Entity with id "${id}" not found in your dialogs`);
 
       return {
         id: dialog.id || bigInt(0),

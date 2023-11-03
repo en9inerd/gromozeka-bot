@@ -1,8 +1,5 @@
-
-import bcrypt from 'bcrypt';
 import { TelegramUserClient } from 'telebuilder';
 import { buttonsReg, command, handler, inject } from 'telebuilder/decorators';
-import { CommandError } from 'telebuilder/exceptions';
 import { EncryptionHelper, tryInputThreeTimes } from 'telebuilder/helpers';
 import { Buttons, Command, CommandScope, HandlerTypes } from 'telebuilder/types';
 import { Api } from 'telegram';
@@ -11,6 +8,7 @@ import { CallbackQueryEvent } from 'telegram/events/CallbackQuery.js';
 import { Button } from 'telegram/tl/custom/button.js';
 import { UserSession } from '../models/index.js';
 import { UserSessionService } from '../services/index.js';
+import { getPasswordValidationFn } from '../utils.js';
 
 @command
 export class SessionCommand implements Command {
@@ -65,39 +63,35 @@ export class SessionCommand implements Command {
 
       try {
         await userClient.init();
-      } catch (err) {
-        event.client.logger.error('User ID: ' + senderId + ' Error: ' + (<Error>err).message);
+
+        const password = await tryInputThreeTimes(
+          senderId,
+          { message: 'Please enter your passphrase to encrypt session:' }
+        );
+        if (!password) return;
+
+        const sessionName = (<Api.User>(await userClient.getMe())).firstName;
+
+        const newUserSession = {
+          sessionName,
+          userId: senderId,
+        } as UserSession;
+
+        const userCreds = {
+          password,
+          session: <string><unknown>userClient.session.save(),
+        };
+
+        if (userSession?.userId) {
+          await this.userSessionService.update(newUserSession, userCreds);
+        } else {
+          await this.userSessionService.create(newUserSession, userCreds);
+        }
+
+        message = 'Your session has been created.';
+      } finally {
         await userClient.destroy();
-        return;
       }
-
-      const password = await tryInputThreeTimes(
-        senderId,
-        { message: 'Please enter your passphrase to encrypt session:' }
-      );
-      if (!password) return;
-
-      const sessionName = (<Api.User>(await userClient.getMe())).firstName;
-
-      const newUserSession = {
-        sessionName,
-        userId: senderId,
-      } as UserSession;
-
-      const userCreds = {
-        password,
-        session: <string><unknown>userClient.session.save(),
-      };
-
-      if (userSession?.userId) {
-        await this.userSessionService.update(newUserSession, userCreds);
-      } else {
-        await this.userSessionService.create(newUserSession, userCreds);
-      }
-
-      await userClient.destroy();
-
-      message = 'Your session has been created.';
     }
 
     await event.client.sendMessage(senderId, { message });
@@ -116,25 +110,24 @@ export class SessionCommand implements Command {
       const password = await tryInputThreeTimes(
         senderId,
         { message: 'Please enter your passphrase to revoke session:' },
-        async (input: string): Promise<boolean> => {
-          if (!(await bcrypt.compare(input, userSession.hashedPassword))) throw new CommandError('Invalid passphrase');
-          return true;
-        }
+        getPasswordValidationFn(userSession)
       );
       if (!password) return;
 
       const session = EncryptionHelper.decrypt(userSession.encryptedSession, password);
-
       const userClient = new TelegramUserClient(session, senderId, event.client);
-      await userClient.connect();
+      try {
+        await userClient.connect();
 
-      if (await userClient.checkAuthorization()) {
-        await userClient.invoke(new Api.auth.LogOut());
+        if (await userClient.checkAuthorization()) {
+          await userClient.invoke(new Api.auth.LogOut());
+        }
+        await this.userSessionService.delete(senderId);
+
+        message = 'Your session has been revoked.';
+      } finally {
+        await userClient.destroy();
       }
-      await this.userSessionService.delete(senderId);
-      await userClient.destroy();
-
-      message = 'Your session has been revoked.';
     }
 
     await event.client.sendMessage(senderId, { message });
@@ -153,10 +146,7 @@ export class SessionCommand implements Command {
       const currentPassword = await tryInputThreeTimes(
         senderId,
         { message: 'Please enter your current passphrase:' },
-        async (input: string): Promise<boolean> => {
-          if (!(await bcrypt.compare(input, userSession.hashedPassword))) throw new CommandError('Invalid passphrase');
-          return true;
-        }
+        getPasswordValidationFn(userSession)
       );
       if (!currentPassword) return;
 

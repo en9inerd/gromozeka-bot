@@ -36,19 +36,6 @@ export class UserSessionService {
     return result;
   }
 
-  public async getByIdAndDecrypt(
-    userId: bigInt.BigInteger | string,
-    password: string,
-  ): Promise<{ userSession: UserSession | null; session: string }> {
-    const userSession = await myCollections.userSessions.findOne({ userId: userId.toString() });
-    let session = '';
-    if (userSession?.encryptedSession && userSession?.hashedPassword) {
-      if (!(await bcrypt.compare(password, userSession.hashedPassword))) throw new Error('Invalid password');
-      session = EncryptionHelper.decrypt(userSession.encryptedSession, password);
-    }
-    return { userSession, session };
-  }
-
   public async getById(userId: bigInt.BigInteger | string): Promise<UserSession | null> {
     return await myCollections.userSessions.findOne({ userId: userId.toString() });
   }
