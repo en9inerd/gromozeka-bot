@@ -7,5 +7,5 @@ If you need to delete all messages from a chat, channel, or conversation, you ca
 
 ## What is Gromozeka Bot?
 
-Gromozeka Bot was designed to assist you in deleting all of your messages from a Telegram chat, channel, or conversation, even without admin privileges. Official Telegram clients do not offer a one-click solution to delete all your messages from a chat; you must manually select the messages you wish to delete, and you can only delete up to 100 selected messages at a time.  
+Gromozeka Bot was implemented to assist the user in deleting all of their messages from a Telegram chat, channel, or conversation, even without admin privileges. Official Telegram clients do not offer a one-click solution to delete all messages from a chat; the user must manually select the messages they wish to delete, and they can only delete up to 100 selected messages at a time.  
 Gromozeka Bot was created to address this problem.
